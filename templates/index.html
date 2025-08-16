@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>CryptoBotTrader</title>
+
+  <!-- Bootstrap 4.5 -->
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"/>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"/>
+
+  <!-- TradingView -->
+  <script src="https://s3.tradingview.com/tv.js"></script>
+
+  <style>
+    body { background: #f8f9fa; }
+    #tv_chart_container { width: 100%; height: 500px; }
+    .news-item a { text-decoration: none; }
+    #weights-table td, #weights-table th,
+    #forecast-table td, #forecast-table th { vertical-align: middle; }
+  </style>
+</head>
+<body>
+<div class="container py-3">
+  <!-- header -->
+  <div class="row mb-3">
+    <div class="col text-center">
+      <h1>Crypto Trader Dashboard</h1>
+      <div class="text-muted" id="today-line"></div>
+    </div>
+  </div>
+
+  <!-- main grid -->
+  <div class="row">
+    <!-- chart -->
+    <div class="col-lg-8 mb-3">
+      <div id="tv_chart_container"></div>
+    </div>
+
+    <!-- right column with cards -->
+    <div class="col-lg-4 mb-3">
+      <!-- last prices -->
+      <div class="card">
+        <div class="card-header">Последние цены</div>
+        <div class="card-body p-0">
+          <table class="table table-sm table-striped mb-0">
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Price</th>
+                <th>Volume</th>
+              </tr>
+            </thead>
+            <tbody>
+            {% for row in prices %}
+              <tr>
+                <td>{{ row.Timestamp }}</td>
+                <td>{{ row.Price }}</td>
+                <td>{{ row.Volume }}</td>
+              </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- news -->
+      <div class="card mt-3">
+        <div class="card-header">Новости</div>
+        <div class="list-group list-group-flush">
+          {% for item in news %}
+          <a href="{{ item.url }}" target="_blank" class="list-group-item list-group-item-action">
+            <div class="font-weight-bold">{{ item.title }}</div>
+            <small class="text-muted">{{ item.source or "Источник" }}</small>
+          </a>
+          {% else %}
+          <div class="list-group-item text-muted">Нет новостей</div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- weights -->
+      <div class="card mt-3">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <span>Целевые веса (последний расчёт)</span>
+          <small class="text-muted" id="weights-run"></small>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm table-striped mb-0" id="weights-table">
+            <thead><tr><th>Symbol</th><th>Weight</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- forecast -->
+      <div class="card mt-3">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <span>Прогноз цены</span>
+          <!-- Bootstrap 4: custom-select -->
+          <select id="forecast-symbol" class="custom-select custom-select-sm" style="width:auto">
+          </select>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm table-striped mb-0" id="forecast-table">
+            <thead><tr><th>T(пред)</th><th>ŷ</th><th>lo</th><th>hi</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div><!-- /right col -->
+  </div><!-- /row -->
+</div><!-- /container -->
+
+<script>
+  // TradingView
+  new TradingView.widget({
+    "width": "100%",
+    "height": 500,
+    "symbol": "{{ tv_symbol or 'BINANCE:BTCUSDT' }}",
+    "interval": "60",
+    "timezone": "Etc/UTC",
+    "theme": "light",
+    "style": "1",
+    "locale": "ru",
+    "toolbar_bg": "#f1f3f6",
+    "enable_publishing": false,
+    "hide_side_toolbar": false,
+    "container_id": "tv_chart_container"
+  });
+
+  // header clock
+  function updateClock() {
+    const now = new Date();
+    const dateFmt = new Intl.DateTimeFormat("ru-RU", { dateStyle: "full" });
+    const timeFmt = new Intl.DateTimeFormat("ru-RU", { timeStyle: "medium" });
+    document.getElementById("today-line").textContent =
+      `${dateFmt.format(now)} — ${timeFmt.format(now)}`;
+  }
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // symbols from backend (fallback to [])
+  const SYMBOLS = {{ (symbols or []) | tojson }};
+
+  // fill select
+  const sel = document.getElementById("forecast-symbol");
+  SYMBOLS.forEach(s => {
+    const opt = document.createElement("option");
+    opt.value = s; opt.textContent = s;
+    sel.appendChild(opt);
+  });
+
+  async function loadWeights() {
+    try {
+      const res = await fetch("/api/weights");
+      const data = await res.json();
+      document.getElementById("weights-run").textContent =
+        data.run_id ? ("run " + data.run_id) : "";
+      const tbody = document.querySelector("#weights-table tbody");
+      tbody.innerHTML = "";
+      (data.items || []).forEach(row => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${row.symbol}</td><td>${(row.weight*100).toFixed(2)}%</td>`;
+        tbody.appendChild(tr);
+      });
+    } catch (e) { console.error("weights error", e); }
+  }
+
+  async function loadForecast(symbol) {
+    try {
+      const res = await fetch(`/api/forecast?symbol=${encodeURIComponent(symbol)}`);
+      const data = await res.json();
+      const tbody = document.querySelector("#forecast-table tbody");
+      tbody.innerHTML = "";
+      (data.items || []).forEach(r => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${r.ts_pred ? r.ts_pred.replace("T"," ") : ""}</td>
+          <td>${Number(r.yhat).toFixed(2)}</td>
+          <td>${Number(r.yhat_lo).toFixed(2)}</td>
+          <td>${Number(r.yhat_hi).toFixed(2)}</td>`;
+        tbody.appendChild(tr);
+      });
+    } catch (e) { console.error("forecast error", e); }
+  }
+
+  // handlers + initial load
+  sel.addEventListener("change", () => loadForecast(sel.value));
+  loadWeights();
+  if (SYMBOLS.length) {
+    sel.value = SYMBOLS[0];
+    loadForecast(SYMBOLS[0]);
+  }
+  setInterval(loadWeights, 60_000);
+  setInterval(() => SYMBOLS.length && loadForecast(sel.value), 60_000);
+</script>
+</body>
+</html>

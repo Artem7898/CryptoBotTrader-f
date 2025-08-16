@@ -1,0 +1,82 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.so
+*.pyd
+
+# Виртуальные окружения
+.venv/
+venv/
+ENV/
+
+# Инструменты тестирования/линтинга/типов
+.pytest_cache/
+.coverage*
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+.pytype/
+
+# --- Flask/Logs/Runtime ---
+instance/
+*.log
+logs/
+*.pid
+celerybeat-schedule
+
+# --- Секреты и конфиги ---
+.env
+.env
+!.env
+*.pem
+*.key
+*.p12
+*.crt
+secrets/
+keys/
+
+# --- Базы данных и локальные артефакты ---
+*.db
+*.sqlite
+*.sqlite3
+
+# --- Данные (чтобы не грузить CSV и прочие файлы на GitHub) ---
+data/
+datasets/
+uploads/
+media/
+ticker_results/
+*.csv
+*.parquet
+*.feather
+*.xlsx
+*.xls
+*.arrow
+
+# --- Сборки/билды ---
+build/
+dist/
+wheels/
+*.egg-info/
+.eggs/
+
+# --- Фронтенд (на случай UI) ---
+node_modules/
+.npm/
+.pnpm-debug.log
+yarn.lock
+pnpm-lock.yaml
+package-lock.json
+.next/
+out/
+*.map
+
+# --- IDE/OS мусор ---
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# --- Docker/Compose артефакты локально ---
+docker-data/

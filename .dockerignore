@@ -1,0 +1,22 @@
+# Повторяем ключевое из .gitignore
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+ENV/
+node_modules/
+build/
+dist/
+*.log
+*.db
+*.sqlite*
+data/
+datasets/
+uploads/
+media/
+ticker_results/
+.env
+.env
+!.env
+.git
+.gitignore
